@@ -31,10 +31,10 @@ If no files found, inform user and stop.
 
 ## Step 3: Analyze and Confirm
 
-For each file, run the script in analyze mode (derive output name from input basename):
+For each file, run the script in analyze mode (derive output name from input filename, lowercase and separate words with dashes, e.g. Movie.1990.x264.mkv -> movie.mp4. The output filename must be different from the input filename):
 
 ```bash
-./.claude/skills/convert-to-mp4/convert-nle.sh --analyze "<file>" "<file_basename>.mp4"
+./.claude/skills/convert-to-mp4/convert-nle.sh --analyze "<file>" "<output_file>.mp4"
 ```
 
 Build a summary table from JSON output:
