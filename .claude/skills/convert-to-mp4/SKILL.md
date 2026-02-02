@@ -33,9 +33,9 @@ For each file, run the script in analyze mode (derive output name from input bas
 ```
 
 Build a summary table from JSON output:
-| File | Video | Audio |
-|------|-------|-------|
-| movie.mkv | `video_summary` | `audio_summary` |
+| File | Output | Video | Audio |
+|------|--------|-------|-------|
+| movie.mkv | movie.mp4 | `video_summary` | `audio_summary` |
 
 Tell user:
 - Originals will be deleted after successful conversion
