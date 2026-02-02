@@ -282,6 +282,7 @@ trap 'rm -f "$FFMPEG_LOG"' EXIT
 if ffmpeg -y -v error -i "$INPUT" \
   -map 0:v:0 $VIDEO_OPTS \
   -map 0:$AUDIO_INDEX $AUDIO_OPTS \
+  -threads 0 \
   -movflags +faststart \
   "$OUTPUT" </dev/null 2>"$FFMPEG_LOG"; then
 
