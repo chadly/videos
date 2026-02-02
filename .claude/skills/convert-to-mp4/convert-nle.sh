@@ -220,31 +220,27 @@ fi
 # --- Build and Execute ffmpeg Command ---
 FFMPEG_CMD="ffmpeg -i $(printf '%q' "$INPUT") -map 0:v:0 $VIDEO_OPTS -map 0:$AUDIO_INDEX $AUDIO_OPTS -movflags +faststart $(printf '%q' "$OUTPUT")"
 
-# Get input duration for progress tracking
-DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$INPUT" 2>/dev/null | cut -d. -f1)
-DURATION=${DURATION:-0}
+# Execute ffmpeg (quiet on success, capture errors)
+FFMPEG_LOG=$(mktemp)
+trap 'rm -f "$FFMPEG_LOG"' EXIT
 
-# Execute ffmpeg
-echo "Converting: $INPUT → $OUTPUT" >&2
-echo "Strategy: $VIDEO_SUMMARY, $AUDIO_SUMMARY" >&2
-
-# Run ffmpeg with progress output to stderr
-if ffmpeg -y -i "$INPUT" \
+if ffmpeg -y -v error -i "$INPUT" \
   -map 0:v:0 $VIDEO_OPTS \
   -map 0:$AUDIO_INDEX $AUDIO_OPTS \
   -movflags +faststart \
-  "$OUTPUT" </dev/null 2>&2; then
+  "$OUTPUT" </dev/null 2>"$FFMPEG_LOG"; then
 
-  # Success - output JSON result
+  # Success - minimal JSON output
   SUMMARY="$VIDEO_SUMMARY, $AUDIO_SUMMARY"
   output_json "ok" \
     "\"input\": $(json_escape "$INPUT")" \
     "\"output\": $(json_escape "$OUTPUT")" \
-    "\"summary\": $(json_escape "$SUMMARY")" \
-    "\"duration_seconds\": $DURATION"
+    "\"summary\": $(json_escape "$SUMMARY")"
 else
+  # Error - include ffmpeg output
+  FFMPEG_ERR=$(cat "$FFMPEG_LOG")
   output_json "error" \
     '"reason": "ffmpeg_failed"' \
-    "\"details\": \"ffmpeg conversion failed for $INPUT\""
+    "\"details\": $(json_escape "$FFMPEG_ERR")"
   exit 1
 fi
