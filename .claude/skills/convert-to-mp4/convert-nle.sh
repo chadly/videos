@@ -48,14 +48,18 @@ needs_review() {
 
 # --- Parse Arguments ---
 ANALYZE_ONLY=false
-if [[ "${1:-}" == "--analyze" ]]; then
-  ANALYZE_ONLY=true
-  shift
-fi
+AUDIO_STREAM=""
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --analyze) ANALYZE_ONLY=true; shift ;;
+    --audio-stream) AUDIO_STREAM="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
 
 # --- Input Validation ---
 if [[ $# -lt 2 ]]; then
-  output_json "error" '"reason": "missing_arguments"' '"details": "Usage: convert-nle.sh [--analyze] <input_file> <output_file>"'
+  output_json "error" '"reason": "missing_arguments"' '"details": "Usage: convert-nle.sh [--analyze] [--audio-stream <index>] <input_file> <output_file>"'
   exit 1
 fi
 
@@ -147,7 +151,17 @@ AUDIO_INDEX=""
 AUDIO_CODEC=""
 AUDIO_CHANNELS=""
 
-if [[ "$ENG_COUNT" -gt 1 ]]; then
+if [[ -n "$AUDIO_STREAM" ]]; then
+  # User specified stream - extract info for that specific stream
+  STREAM_INFO=$(echo "$AUDIO_PROBE" | jq --arg idx "$AUDIO_STREAM" '.streams[] | select(.index == ($idx | tonumber))')
+  if [[ -z "$STREAM_INFO" ]]; then
+    output_json "error" '"reason": "invalid_stream"' "\"details\": \"Audio stream $AUDIO_STREAM not found\""
+    exit 1
+  fi
+  AUDIO_INDEX="$AUDIO_STREAM"
+  AUDIO_CODEC=$(echo "$STREAM_INFO" | jq -r '.codec_name')
+  AUDIO_CHANNELS=$(echo "$STREAM_INFO" | jq -r '.channels')
+elif [[ "$ENG_COUNT" -gt 1 ]]; then
   # Multiple English tracks - need user choice
   TRACK_DETAILS=$(echo "$ENG_TRACKS" | jq -r '.[] | "Stream \(.index): \(.codec_name) \(.channels)ch"' | tr '\n' ', ' | sed 's/, $//')
   needs_review "multiple_english_audio" "Found $ENG_COUNT English audio tracks: $TRACK_DETAILS" "$ENG_TRACKS"
