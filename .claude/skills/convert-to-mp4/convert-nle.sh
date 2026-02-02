@@ -54,18 +54,18 @@ if [[ "${1:-}" == "--analyze" ]]; then
 fi
 
 # --- Input Validation ---
-if [[ $# -lt 1 ]]; then
-  output_json "error" '"reason": "missing_input"' '"details": "Usage: convert-nle.sh [--analyze] <input_file>"'
+if [[ $# -lt 2 ]]; then
+  output_json "error" '"reason": "missing_arguments"' '"details": "Usage: convert-nle.sh [--analyze] <input_file> <output_file>"'
   exit 1
 fi
 
 INPUT="$1"
+OUTPUT="$2"
+
 if [[ ! -f "$INPUT" ]]; then
   output_json "error" '"reason": "file_not_found"' "\"details\": \"File not found: $INPUT\""
   exit 1
 fi
-
-OUTPUT="${INPUT%.*}.mp4"
 
 # --- Probe Video Stream ---
 VIDEO_PROBE=$(ffprobe -v error -select_streams v:0 \

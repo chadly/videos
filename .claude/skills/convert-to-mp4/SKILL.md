@@ -2,7 +2,7 @@
 name: convert-to-mp4
 description: >-
   Convert video files to MP4 container format for non-linear editing (NLE).
-  Scans current directory for .mkv files, analyzes them, and batch converts.
+  Scans current directory for .mkv and .mp4 files, analyzes them, and batch converts.
   Use when the user wants to convert videos for editing software like Premiere,
   DaVinci Resolve, or Final Cut, or mentions remuxing/transcoding to MP4.
 ---
@@ -19,17 +19,17 @@ If missing, warn user and stop.
 
 ## Step 2: Discover Video Files
 
-Scan current directory for `.mkv` files:
+Scan current directory for `.mkv` and `.mp4` files:
 ```bash
-ls -1 *.mkv 2>/dev/null
+ls -1 *.mkv *.mp4 2>/dev/null | sort -u
 ```
 If no files found, inform user and stop.
 
 ## Step 3: Analyze and Confirm
 
-For each file, run the script in analyze mode:
+For each file, run the script in analyze mode (derive output name from input basename):
 ```bash
-./.claude/skills/convert-to-mp4/convert-nle.sh --analyze "<file>"
+./.claude/skills/convert-to-mp4/convert-nle.sh --analyze "<file>" "<file_basename>.mp4"
 ```
 
 Build a summary table from JSON output:
@@ -45,9 +45,9 @@ Ask for confirmation before proceeding.
 
 ## Step 4: Batch Process
 
-Process each file sequentially:
+Process each file sequentially (derive output name from input basename):
 ```bash
-./.claude/skills/convert-to-mp4/convert-nle.sh "<file>"
+./.claude/skills/convert-to-mp4/convert-nle.sh "<file>" "<file_basename>.mp4"
 ```
 
 Handle each result:
