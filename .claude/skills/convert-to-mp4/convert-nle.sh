@@ -46,9 +46,16 @@ needs_review() {
   exit 0
 }
 
+# --- Parse Arguments ---
+ANALYZE_ONLY=false
+if [[ "${1:-}" == "--analyze" ]]; then
+  ANALYZE_ONLY=true
+  shift
+fi
+
 # --- Input Validation ---
 if [[ $# -lt 1 ]]; then
-  output_json "error" '"reason": "missing_input"' '"details": "Usage: convert-nle.sh <input_file>"'
+  output_json "error" '"reason": "missing_input"' '"details": "Usage: convert-nle.sh [--analyze] <input_file>"'
   exit 1
 fi
 
@@ -208,7 +215,41 @@ esac
 
 # --- Check if Already Optimized ---
 INPUT_EXT="${INPUT##*.}"
+ALREADY_OPTIMIZED=false
 if [[ "${INPUT_EXT,,}" == "mp4" && "$VIDEO_OPTS" == "-c:v copy" && "$AUDIO_OPTS" == "-c:a copy" ]]; then
+  ALREADY_OPTIMIZED=true
+fi
+
+# --- Analyze-Only Mode ---
+if [[ "$ANALYZE_ONLY" == "true" ]]; then
+  VIDEO_ACTION="remux"
+  [[ "$VIDEO_OPTS" != "-c:v copy" ]] && VIDEO_ACTION="transcode"
+
+  AUDIO_ACTION="remux"
+  [[ "$AUDIO_OPTS" != "-c:a copy" ]] && AUDIO_ACTION="transcode"
+
+  if [[ "$ALREADY_OPTIMIZED" == "true" ]]; then
+    output_json "ok" \
+      '"dry_run": true' \
+      "\"input\": $(json_escape "$INPUT")" \
+      "\"video\": {\"codec\": \"$VIDEO_CODEC\", \"resolution\": \"${VIDEO_WIDTH}x${VIDEO_HEIGHT}\", \"action\": \"$VIDEO_ACTION\"}" \
+      "\"audio\": {\"codec\": \"$AUDIO_CODEC\", \"channels\": $AUDIO_CHANNELS, \"action\": \"$AUDIO_ACTION\"}" \
+      '"skipped": true' \
+      '"summary": "already optimized - no conversion needed"'
+  else
+    output_json "ok" \
+      '"dry_run": true' \
+      "\"input\": $(json_escape "$INPUT")" \
+      "\"video\": {\"codec\": \"$VIDEO_CODEC\", \"resolution\": \"${VIDEO_WIDTH}x${VIDEO_HEIGHT}\", \"action\": \"$VIDEO_ACTION\"}" \
+      "\"audio\": {\"codec\": \"$AUDIO_CODEC\", \"channels\": $AUDIO_CHANNELS, \"action\": \"$AUDIO_ACTION\"}" \
+      "\"video_summary\": $(json_escape "$VIDEO_SUMMARY")" \
+      "\"audio_summary\": $(json_escape "$AUDIO_SUMMARY")"
+  fi
+  exit 0
+fi
+
+# --- Already Optimized (non-analyze mode) ---
+if [[ "$ALREADY_OPTIMIZED" == "true" ]]; then
   output_json "ok" \
     "\"input\": $(json_escape "$INPUT")" \
     "\"output\": $(json_escape "$OUTPUT")" \
