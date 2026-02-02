@@ -2,44 +2,93 @@
 name: convert-to-mp4
 description: >-
   Convert video files to MP4 container format for non-linear editing (NLE).
-  Uses convert-nle.sh to analyze and convert automatically.
+  Scans current directory for .mkv files, analyzes them, and batch converts.
   Use when the user wants to convert videos for editing software like Premiere,
   DaVinci Resolve, or Final Cut, or mentions remuxing/transcoding to MP4.
 ---
 
 # Convert Video to MP4 for NLE
 
-Run the conversion script:
+## Step 1: Check Prerequisites
 
+Verify destination exists:
 ```bash
-./.claude/skills/convert-to-mp4/convert-nle.sh "<input_file>"
+[ -d "/mnt/d/Videos/movies" ] && echo "OK" || echo "MISSING"
+```
+If missing, warn user and stop.
+
+## Step 2: Discover Video Files
+
+Scan current directory for `.mkv` files:
+```bash
+ls -1 *.mkv 2>/dev/null
+```
+If no files found, inform user and stop.
+
+## Step 3: Analyze and Confirm
+
+For each file, run ffprobe to analyze:
+```bash
+ffprobe -v quiet -print_format json -show_streams "<file>"
 ```
 
-## Handling Results
+Build a summary table showing for each file:
+| File | Video | Audio |
+|------|-------|-------|
+| movie.mkv | remux hevc 1080p | transcode dts 5.1 → aac stereo |
 
-**If status is "ok"**: Report the summary to the user. Conversion is complete. Example response:
+Determine strategy per stream:
+- **Video**: h264/hevc → remux; other (vp9, av1, etc.) → transcode to h264
+- **Audio**: aac stereo → remux; other → transcode to aac stereo
 
-> Converted `input.mkv` to `input.mp4`
-> - Video: remuxed (hevc)
-> - Audio: transcoded (dts 5.1 → aac stereo)
+Tell user:
+- Originals will be deleted after successful conversion
+- Outputs go to `/mnt/d/Videos/movies/`
 
-**If status is "ok" with "skipped": true**: The file is already optimized. Inform the user no conversion was needed.
+Ask for confirmation before proceeding.
 
-**If status is "needs_review"**: The script found an edge case requiring user input. Analyze the `probe_data` and `reason`:
+## Step 4: Batch Process
 
-| Reason | Action |
+Process each file sequentially:
+```bash
+./.claude/skills/convert-to-mp4/convert-nle.sh "<file>"
+```
+
+Handle each result:
+
+| Status | Action |
 |--------|--------|
-| `multiple_english_audio` | Ask user which track to use, then run ffmpeg manually |
-| `missing_language_tags` | Ask user which track to use, then run ffmpeg manually |
-| `unknown_video_codec` | Analyze codec and decide: transcode to h264 or flag as unsupported |
-| `no_video_stream` | Inform user the file has no video |
-| `no_audio_stream` | Inform user the file has no audio |
+| `ok` | Delete original, move `.mp4` to `/mnt/d/Videos/movies/`, log success |
+| `ok` + `skipped` | File already optimized, skip cleanup, log skipped |
+| `needs_review` | Note the reason, keep original, continue to next file |
+| `error` | Report error, keep original, continue to next file |
 
-**If status is "error"**: Report the error to the user.
+## Step 5: Cleanup (on success)
 
-## Manual ffmpeg Template (for edge cases)
+```bash
+rm "<original_file>"
+mv "<output_file>.mp4" "/mnt/d/Videos/movies/"
+```
 
-When you need to run ffmpeg manually after user input:
+## Step 6: Summary
+
+After all files processed, report:
+- Files converted successfully (with destinations)
+- Files skipped (with reasons: already optimized, needs_review reason, or error)
+
+## Handling needs_review Cases
+
+When a file returns `needs_review`, note the reason for the summary:
+
+| Reason | Summary Note |
+|--------|--------------|
+| `multiple_english_audio` | "Multiple English tracks - user must choose" |
+| `missing_language_tags` | "No language tags - user must choose audio track" |
+| `unknown_video_codec` | "Unknown codec - manual review needed" |
+| `no_video_stream` | "No video stream found" |
+| `no_audio_stream` | "No audio stream found" |
+
+## Manual ffmpeg Template (for edge cases resolved later)
 
 ```bash
 ffmpeg -i "<input_file>" \
@@ -56,4 +105,3 @@ ffmpeg -i "<input_file>" \
 ### Audio Options
 - Copy AAC stereo: `-c:a copy`
 - Transcode to stereo: `-ac 2 -c:a aac -b:a 256k`
-- Mono to stereo: `-ac 2 -c:a aac -b:a 192k`
